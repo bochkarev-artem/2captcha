@@ -23,6 +23,12 @@ Decode from a url, with a 10 seconds polling interval: (default = 2000ms)
         console.log(result.text);
     });
 
+Decode reCaptcha, with a 10 seconds polling interval: (default = 2000ms)
+
+    solver.decodeReCaptcha(captcha, pageUrl, {pollingInterval: 10000}, function(err, result, invalid) {
+        console.log(result.text);
+    });
+
 Decode from a url retrying 5 times if invalid is called (default = 3)
 
     solver.decodeUrl(url, {retries: 5}, function(err, result, invalid) {

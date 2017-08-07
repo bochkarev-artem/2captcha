@@ -1,8 +1,3 @@
-/*
-	index.js
-	Sander Kastelein <sander@sanderkastelein.nl>
-	2015-04-03
-*/
 "use strict";
 
 var http = require('http');
@@ -15,6 +10,7 @@ var apiKey;
 var apiInUrl = 'http://2captcha.com/in.php';
 var apiResUrl = 'http://2captcha.com/res.php';
 var apiMethod = 'base64';
+var apiMethodRecaptcha = 'userrecaptcha';
 
 var defaultOptions = {
     pollingInterval: 2000,
@@ -113,7 +109,62 @@ module.exports.decode = function(base64, options, callback) {
             }, callback);
         });
     });
-    request.write(postData)
+    request.write(postData);
+    request.end();
+};
+
+module.exports.decodeReCaptcha = function(captcha, pageUrl, options, callback) {
+    if(!callback){
+        callback = options;
+        options = defaultOptions;
+    }
+    var httpRequestOptions = url.parse(apiInUrl);
+    httpRequestOptions.method = 'POST';
+
+    var postData = {
+        method: apiMethodRecaptcha,
+        key: apiKey,
+        googlekey: captcha,
+        pageurl: pageUrl
+    };
+
+    postData = querystring.stringify(postData);
+
+    var request = http.request(httpRequestOptions, function(response) {
+        var body = '';
+
+        response.on('data', function(chunk) {
+            body += chunk;
+        });
+
+        response.on('end', function() {
+            var result = body.split('|');
+            if (result[0] !== 'OK'){
+                return callback(result[0]);
+            }
+
+            pollCaptcha(result[1], options, function(error){
+                var callbackToInitialCallback = callback;
+
+                module.exports.report(this.captchaId);
+
+                if(error){
+                    return callbackToInitialCallback('CAPTCHA_FAILED');
+                }
+
+                if(!this.options.retries){
+                    this.options.retries = defaultOptions.retries;
+                }
+                if(this.options.retries > 1){
+                    this.options.retries = this.options.retries - 1;
+                    module.exports.decode(captcha, this.options, callback);
+                }else{
+                    callbackToInitialCallback('CAPTCHA_FAILED_TOO_MANY_TIMES');
+                }
+            }, callback);
+        });
+    });
+    request.write(postData);
     request.end();
 };
 
